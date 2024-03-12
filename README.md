@@ -30,7 +30,7 @@ Example code in `tutorial-round/backtest.py`.
 - Run `prober.py` (or some other solution that prints `jsonpickle.encode(state)` and nothing else) on the actual evaluation platform.
 - Download the log.
 - Parse the log file: `log = log_parser.parse_log("/path/to/log/file", parse_trader_log_as_object=True)`
-- Run `backtester.backtest(trader.run, log, iters=100)`, where `trader.run` is the run *function* of the trader you want to backtest.
+- Run `backtester.backtest(trader.run, log)`, where `trader.run` is the run *function* of the trader you want to backtest.
 
 Note that you don't need to make a trader to run the backtester: just make the function if you're testing things out.
 
