@@ -91,6 +91,16 @@ class Trader:
         return orders, data
 
     @staticmethod
+    def amethyst_threshold(pos):
+        if pos >= 15:
+            return 0
+        elif pos >= 13:
+            return 1
+        else:
+            return 2
+        
+
+    @staticmethod
     def amethyst_strategy(state, data):
         symbol = AMETHYSTS
         order_depths = state.order_depths[symbol]
@@ -124,23 +134,23 @@ class Trader:
                 max_sell -= qty
                 new_pos -= qty
 
-        # attempt to get position back to 0
-        if new_pos > 0:
-            # try to sell at target price
-            amt = min(new_pos, max_sell)
-            orders.append(Order(symbol, target_price, -amt))
-            max_sell -= amt
-        if new_pos < 0:
-            # try to buy at target price
-            amt = min(-new_pos, max_buy)
-            orders.append(Order(symbol, target_price, amt))
-            max_buy -= amt
+        # # attempt to get position back to 0
+        # if new_pos > 0:
+        #     # try to sell at target price
+        #     amt = min(new_pos, max_sell)
+        #     orders.append(Order(symbol, target_price, -amt))
+        #     max_sell -= amt
+        # if new_pos < 0:
+        #     # try to buy at target price
+        #     amt = min(-new_pos, max_buy)
+        #     orders.append(Order(symbol, target_price, amt))
+        #     max_buy -= amt
 
         # Market make
         if max_buy > 0:
-            orders.append(Order(symbol, round(target_price - 1), max_buy))
+            orders.append(Order(symbol, target_price - Trader.amethyst_threshold(new_pos), max_buy))
         if max_sell > 0:
-            orders.append(Order(symbol, round(target_price + 1), -max_sell))
+            orders.append(Order(symbol, target_price + Trader.amethyst_threshold(-new_pos), -max_sell))
         
         return orders, None
         
