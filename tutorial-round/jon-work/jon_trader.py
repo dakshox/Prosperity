@@ -55,6 +55,8 @@ class Trader:
         if position > -20:
             orders.append(Order(product, 4995, -20))
 
+        result[product] = orders
+
         # String value holding Trader state data required
         # Delivered as state.traderData on next execution
         traderData = ""
