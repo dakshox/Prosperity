@@ -12,6 +12,15 @@ Python projects should use a virtual environment to control which versions of pa
 
 Whenever you install a new package and use it in the project, add it to the requirements list with `pip freeze > requirements.txt`. This overwrites the old file, so make sure the new package is really necessary!
 
+## Protocol
+
+From experiments, this is approximately what happens at each timestep:
+
+- you get a list of bids/offers
+- you get to submit any number of bids/offers
+- your trades get matched to the bots' bids/offers, resolving to the *bot price*
+- your remaining trades may be executed by the bots, resolving to *your price*
+
 ## Changelog
 
 ### Initial Commit (`Daksh 2024-03-11`)
