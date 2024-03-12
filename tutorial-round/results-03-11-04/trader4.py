@@ -3,7 +3,7 @@ from typing import List
 import string
 
 class Trader:
-    
+
     def run(self, state: TradingState):
         print("traderData: " + state.traderData)
         print("Observations: " + str(state.observations))
@@ -24,14 +24,14 @@ class Trader:
             orders.append(Order(product, 9999, 2))
 
         result[product] = orders
-  
 
 
 
-		    # String value holding Trader state data required. 
+
+		    # String value holding Trader state data required.
 				# It will be delivered as TradingState.traderData on next execution.
-        traderData = "SAMPLE" 
-        
-				# Sample conversion request. Check more details below. 
+        traderData = "SAMPLE"
+
+				# Sample conversion request. Check more details below.
         conversions = 1
         return result, conversions, traderData
