@@ -2,8 +2,8 @@ from datamodel import *
 import jsonpickle
 from dataclasses import dataclass
 
-starfruit_c = -0.07127450931319589
-starfruit_intercept = -0.0014791778084142356
+starfruit_c = -0.45
+starfruit_intercept = 0
 STARFRUIT = "STARFRUIT"
 AMETHYSTS = "AMETHYSTS"
 LIMITS = {
@@ -92,12 +92,7 @@ class Trader:
 
     @staticmethod
     def amethyst_threshold(pos):
-        if pos >= 15:
-            return 0
-        elif pos >= 13:
-            return 1
-        else:
-            return 2
+        return 2
         
 
     @staticmethod
@@ -176,5 +171,8 @@ class Trader:
 if __name__ == "__main__":
     import tools.backtester as backtester
     import tools.log_parser as log_parser
+    import numpy as np
     log = log_parser.parse_log("trader4_log.log", parse_trader_log_as_object=True)
-    print(backtester.backtest(Trader().run, log))
+
+    for starfruit_c in np.arange(-0.5, -0.4, 0.005):
+        print(starfruit_c, backtester.backtest(Trader().run, log))
