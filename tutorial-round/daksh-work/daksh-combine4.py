@@ -36,13 +36,16 @@ class Trader:
         print("Orders: " + str(orders))
             
 
-    
+        result[product] = orders
+        
         product = 'STARFRUIT'
         order_depth: OrderDepth = state.order_depths[product]
         position = state.position[product] if product in state.position else 0
         traderData = state.traderData
         newBid = max(order_depth.buy_orders.keys())
         newAsk = min(order_depth.sell_orders.keys())
+        bidSize = order_depth.buy_orders[newBid]
+        askSize = order_depth.sell_orders[newAsk]
 
         if traderData == "":
             result[product] = orders
@@ -51,17 +54,16 @@ class Trader:
             #Check bid or ask has moved by a lot
             oldBidAsk = traderData.split(",")
             oldBid, oldAsk = int(oldBidAsk[0]), int(oldBidAsk[1])
-            if newBid > oldBid + 4 & position > -17:
-                orders.append(Order(product, newBid, -2))
-            if newAsk < oldAsk - 4 & position < 17:
-                orders.append(Order(product, newAsk, 2))
+            if newBid > oldBid + 4:
+                orders.append(Order(product, newBid, max(-bidSize, -20-position)))
+            if newAsk < oldAsk - 4:
+                orders.append(Order(product, newAsk, min(askSize, 20 - position)))
             traderData = str(newBid)+","+ str(newAsk)
 
 
         result[product] = orders
 		    # String value holding Trader state data required. 
 				# It will be delivered as TradingState.traderData on next execution.
-        traderData = "Sample"
 				# Sample conversion request. Check more details below. 
         conversions = 1
         return result, conversions, traderData
