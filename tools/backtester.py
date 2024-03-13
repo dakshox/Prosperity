@@ -23,8 +23,6 @@ def _resolve_orders(my_orders: list[datamodel.Order], order_depth_dict: Dict[int
         order.price = int(order.price)
     order_ptr = 0
 
-    print(f"my_orders: {my_orders}, order_depth_dict: {order_depth_dict}, resolving_bids: {resolving_bids}, timestamp: {timestamp}")
-
     for price, qty in order_depth_dict.items():
         price = int(price)
         qty = abs(int(qty))
@@ -49,7 +47,6 @@ def _resolve_orders(my_orders: list[datamodel.Order], order_depth_dict: Dict[int
                     seller="" if resolving_bids else "SUBMISSION",
                     timestamp=timestamp,
                 ))
-                print("trade: ", trades[-1])
                 if my_orders[order_ptr].quantity == 0:
                     order_ptr += 1
             else:
@@ -83,7 +80,7 @@ def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=
 
     balance = 0
     trader_data = ""
-    position = {s: 0 for s in limits.keys()}
+    position = {}
     last_round_trades = []
 
     final_timestamp = 0
@@ -111,7 +108,7 @@ def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=
         for symbol, symbol_orders in orders.items():
             assert all(o.quantity != 0 for o in symbol_orders), f"Order with 0 quantity found: {symbol}, {symbol_orders}"
 
-            current_position = position[symbol]
+            current_position = position[symbol] if symbol in position.keys() else 0
             bid_orders = [o for o in symbol_orders if o.quantity > 0]
             ask_orders = [o for o in symbol_orders if o.quantity < 0]
 
@@ -138,7 +135,10 @@ def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=
                 trades=last_round_trades,
                 timestamp=log_state.timestamp
             )
-            position[symbol] += bid_delta_position + ask_delta_position
+            if bid_delta_position + ask_delta_position != 0:
+                if symbol not in position.keys():
+                    position[symbol] = 0
+                position[symbol] += bid_delta_position + ask_delta_position
             balance += bid_delta_balance + ask_delta_balance
             if bid_delta_position != 0 and ask_delta_position != 0:
                 warn(f"Bid and ask filled at the same time for {symbol} at timestamp {log_state.timestamp}")
