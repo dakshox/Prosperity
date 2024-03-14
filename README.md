@@ -9,13 +9,14 @@ Python projects should use a virtual environment to control which versions of pa
 1. Create a virtual environment with `python -m venv ".venv"`.
 1. Activate it with `./.venv/Scripts/activate` on Windows, or `source ./.venv/bin/activate` on Mac (not tested yet).
 1. Install the required packages with `pip install -r requirements.txt`.
+1. Run `pip install -e tools`.
 
 Whenever you install a new package and use it in the project, add it to the requirements list with `pip freeze > requirements.txt`. This overwrites the old file, so make sure the new package is really necessary!
 
 ## Protocol
+ timestep:
 
-From experiments, this is approximately what happens at each timestep:
-
+From experiments, this is approximately what happens at each
 1. you get a list of bids/offers
 2. you get to submit any number of bids/offers
 3. your trades get matched to the bots' bids/offers, resolving to the *bot price*

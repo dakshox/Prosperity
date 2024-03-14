@@ -5,6 +5,7 @@ import re
 import jsonpickle
 import json
 import io
+import datamodel
 
 @dataclass
 class SandboxLogEntry:
@@ -43,7 +44,7 @@ def parse_log(path: str, parse_trader_log_as_object: bool = False) -> Log:
             entry = "\n".join(lines[i:i+5])
             obj = json.loads(entry)
             try:
-                log_object = decoder(obj["lambdaLog"])
+                log_object = decoder(obj["lambdaLog"], classes=datamodel.TradingState)
             except json.decoder.JSONDecodeError:
                 print(f"[WARN] lambdaLog is missing for timestamp {obj['timestamp']}.")
                 log_object = None
