@@ -82,9 +82,9 @@ class Trader:
         
         # some market making
         if max_buy > 0:
-            orders.append(Order(symbol, round(target_price - 1), max_buy))
+            orders.append(Order(symbol, round(min(data.ema0_1, target_price) - 1), max_buy))
         if max_sell > 0:
-            orders.append(Order(symbol, round(target_price + 1), -max_sell))
+            orders.append(Order(symbol, round(max(data.ema0_1, target_price) + 1), -max_sell))
 
         data.last_mid_price = mid_price
 
@@ -151,7 +151,10 @@ class Trader:
         
         
 
-    def run(self, state: TradingState):
+    def run(self, state: TradingState, verbose=True):
+
+        if verbose:
+            print(jsonpickle.encode(state))
 
         data_str = state.traderData
         if data_str == "":
@@ -174,5 +177,5 @@ if __name__ == "__main__":
     import numpy as np
     log = log_parser.parse_log("trader4_log.log", parse_trader_log_as_object=True)
 
-    for starfruit_c in np.arange(-0.5, -0.4, 0.005):
-        print(starfruit_c, backtester.backtest(Trader().run, log))
+    # for starfruit_c in np.arange(-0.5, -0.4, 0.005):
+    print(starfruit_c, backtester.backtest(lambda *args, **kwargs: Trader().run(*args, **kwargs, verbose=False), log))
