@@ -1,7 +1,7 @@
 import csv
 import os
 
-path = r"C:\SandBox\Prosperity\Data1"  # Use a raw string
+path = r"C:\SandBox\Prosperity\tutorial-round\daksh-work\results-03-19-01"  # Use a raw string
 os.chdir(path)
 print(os.getcwd())
 
