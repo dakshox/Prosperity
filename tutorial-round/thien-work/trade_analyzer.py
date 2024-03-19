@@ -50,7 +50,7 @@ def annotate_log(log: Log):
             buy_idx = 0
             for price, qty in book.sell_orders.items():
                 price = int(price)
-                qty = int(qty)
+                qty = -int(qty)
                 while buy_idx < len(buys) and qty > 0:
                     if buys[buy_idx].price < price:
                         buy_idx += 1
@@ -77,32 +77,3 @@ def annotate_log(log: Log):
                     log.trades_df.at[sells[sell_idx].idx, "market_order_filled"] += trade_qty
                     if sells[sell_idx].qty == 0:
                         sell_idx += 1
-
-
-
-if __name__ == "__main__":
-    log = parse_log("03_19_combined_trader.log", True)
-    annotate_log(log)
-    # print(log.sandbox_logs[5].trader_log.own_trades)
-    # print(log.activity_df.tail())
-
-    print(log.trades_df.head(10))
-    print(log.activity_df.head(10))
-
-    # print()
-    # activity = log.activity_df.rename({"product": "symbol"}, inplace=False, axis=1).set_index(["timestamp", "symbol"], inplace=False)
-    # print(activity)
-    # print(log.trades_df.set_index(["timestamp", "symbol"]))
-    # final = (activity.merge(log.trades_df.set_index(["timestamp", "symbol"]), how="right", left_index=True, right_index=True).reset_index())
-    # print(final[final.symbol == "STARFRUIT"].head(20))
-
-    # # resolve trades
-    # old_position = 0
-    # for row in log.activity_df[log.activity_df["product"] == "STARFRUIT"].itertuples():
-    #     trades = log.trades_df[(log.trades_df.symbol == "STARFRUIT") & (log.trades_df.timestamp == row.timestamp - 100)]
-    #     delta = trades[trades.buyer == "SUBMISSION"].quantity.sum() - trades[trades.seller == "SUBMISSION"].quantity.sum()
-    #     expected_position = old_position + delta
-    #     actual_position = row.position
-    #     if expected_position != actual_position:
-    #         print(f"Time: {row.timestamp}, Expected: {expected_position}, Actual: {actual_position}")
-    #     old_position = actual_position

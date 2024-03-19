@@ -60,6 +60,9 @@ class Trader:
         pred_future_diff = ema_diff * starfruit_c + starfruit_intercept
         
         target_price = data.ema0_1 - pred_future_diff
+
+        buy_target = min(data.ema0_1, target_price)
+        sell_target = max(data.ema0_1, target_price)
         # print(ema_diff, pred_future_diff, target_price)
 
         orders = []
@@ -67,7 +70,7 @@ class Trader:
         for order in sell_orders:
             if max_buy <= 0:
                 break
-            if order["price"] < target_price:
+            if order["price"] < buy_target:
                 qty = min(max_buy, abs(order["qty"]))
                 orders.append(Order(symbol, order["price"], qty)) # buy
                 max_buy -= qty
@@ -75,16 +78,16 @@ class Trader:
         for order in buy_orders:
             if max_sell <= 0:
                 break
-            if order["price"] > target_price:
+            if order["price"] > sell_target:
                 qty = min(max_sell, abs(order["qty"]))
                 orders.append(Order(symbol, order["price"], -qty))
                 max_sell -= qty
         
         # some market making
         if max_buy > 0:
-            orders.append(Order(symbol, round(min(data.ema0_1, target_price) - 1), max_buy))
+            orders.append(Order(symbol, round(buy_target - 1), max_buy))
         if max_sell > 0:
-            orders.append(Order(symbol, round(max(data.ema0_1, target_price) + 1), -max_sell))
+            orders.append(Order(symbol, round(sell_target + 1), -max_sell))
 
         data.last_mid_price = mid_price
 
