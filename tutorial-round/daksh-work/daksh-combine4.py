@@ -63,10 +63,12 @@ class Trader:
             #Check bid or ask has moved by a lot
             oldBidAsk = traderData.split(",")
             oldBid, oldAsk = int(oldBidAsk[0]), int(oldBidAsk[1])
-            if newBid > oldBid + 2:
-                orders.append(Order(product, newBid, max(-bidSize, -20-position)))
-            if newAsk < oldAsk - 2:
-                orders.append(Order(product, newAsk, min(askSize, 20 - position)))
+            if newBid > oldBid + 4:
+                orders.append(Order(product, newBid, max(-bidSize,-20-position)))
+                print('I WANT TO SELL', oldBid, newBid)
+            if newAsk < oldAsk - 4:
+                orders.append(Order(product, newAsk, min(-askSize,20 - position)))
+                print('I WANT TO BUY', oldAsk, newAsk)
 
         traderData = str(newBid)+","+ str(newAsk)
         return orders, traderData

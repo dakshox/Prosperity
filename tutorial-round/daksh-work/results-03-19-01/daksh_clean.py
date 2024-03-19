@@ -66,7 +66,7 @@ class Trader:
             if newBid > oldBid + 4:
                 orders.append(Order(product, newBid, max(-bidSize, -20-position)))
             if newAsk < oldAsk - 4:
-                orders.append(Order(product, newAsk, min(askSize, 20 - position)))
+                orders.append(Order(product, newAsk, min(askSize, 20 - position))) # SHOULD BE -ASK SIZE, I AM ALWAYS SELLING
 
         traderData = str(newBid)+","+ str(newAsk)
         return orders, traderData
