@@ -33,7 +33,7 @@ def parse_log(path: str, parse_trader_log_as_object: bool = False) -> Log:
     sections = re.split("\n\n+", s)
     assert len(sections) == 3
 
-    decoder = jsonpickle.decode if parse_trader_log_as_object else lambda x: x
+    decoder = jsonpickle.decode if parse_trader_log_as_object else lambda x, *args, **kwargs: x
 
     def parse_sandbox(sect: str):
         t = sect.split('\n', 1)
