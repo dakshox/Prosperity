@@ -11,6 +11,8 @@ def annotate_log(log: Log):
     def get_position(timestamp, product):
         if timestamp not in trader_logs:
             return None
+        if trader_logs[timestamp] is None:
+            return None
         position_obj = trader_logs[timestamp].position
         return position_obj[product] if product in position_obj else 0
 
@@ -22,6 +24,8 @@ def annotate_log(log: Log):
     log.trades_df.sort_values("timestamp", inplace=True)
     log.trades_df.assign(submission_involved=False, market_order_filled=None)
     for timestamp in trader_logs:
+        if trader_logs[timestamp] is None:
+            continue
         for symbol in log.trades_df["symbol"].unique():
             all_trades = log.trades_df[(log.trades_df.timestamp == timestamp) & (log.trades_df.symbol == symbol)]
             buys = [] # (price, quantity, index)

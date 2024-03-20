@@ -85,9 +85,9 @@ class Trader:
         
         # some market making
         if max_buy > 0:
-            orders.append(Order(symbol, round(buy_target - 1), max_buy))
+            orders.append(Order(symbol, round(buy_target - 1.5), max_buy))
         if max_sell > 0:
-            orders.append(Order(symbol, round(sell_target + 1), -max_sell))
+            orders.append(Order(symbol, round(sell_target + 1.5), -max_sell))
 
         data.last_mid_price = mid_price
 
