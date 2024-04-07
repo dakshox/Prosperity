@@ -43,11 +43,13 @@ class Trader:
         else:
             ewma = float(traderData)
             ewma = 0.1 * newMid + 0.9 * ewma
+            rounded_ewma = round(ewma)
+            rounded_position = round(position / 35)
             traderData = str(ewma)
             if position > -20:
-                orders.append(Order(product, round(ewma) + 2, -20-position))
+                orders.append(Order(product, rounded_ewma + 2 - rounded_position, -20-position))
             if position < 20:
-                orders.append(Order(product, round(ewma) - 2, 20 - position))
+                orders.append(Order(product, rounded_ewma - 2  - rounded_position, 20 - position))
 
 
         return orders, traderData
