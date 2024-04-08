@@ -42,7 +42,7 @@ class Trader:
 
         else:
             ewma = float(traderData)
-            ewma = 0.1 * newMid + 0.9 * ewma
+            ewma = 0.3 * newMid + 0.7 * ewma
             rounded_ewma = round(ewma)
             rounded_position = round(position / 35)
             traderData = str(ewma)

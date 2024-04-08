@@ -92,7 +92,7 @@ class Trader:
         data.last_mid_price = mid_price
 
         return orders, data
-
+    
     @staticmethod
     def amethyst_threshold(pos):
         return 2
