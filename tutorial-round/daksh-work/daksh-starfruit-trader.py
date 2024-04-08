@@ -57,7 +57,7 @@ class Trader:
     def run(self, state: TradingState):
         
 
-
+        print(state.position)
         result = {}
         
         starfruit_orders, traderData = Trader.StarfruitTrades(state)
@@ -71,11 +71,11 @@ class Trader:
 
         return result, conversions, traderData
     
-if __name__ == "__main__":
-    import tools.backtester as backtester
-    import tools.log_parser as log_parser
-    log = log_parser.parse_log("tutorial-round\daksh-work\prober.log", parse_trader_log_as_object=True)
-    for x in range(1, 11):
-        print(x)
-        print(backtester.backtest(Trader().run, log))
+# if __name__ == "__main__":
+#     import tools.backtester as backtester
+#     import tools.log_parser as log_parser
+#     log = log_parser.parse_log("tutorial-round\daksh-work\prober.log", parse_trader_log_as_object=True)
+#     for x in range(1, 11):
+#         print(x)
+#         print(backtester.backtest(Trader().run, log))
     
