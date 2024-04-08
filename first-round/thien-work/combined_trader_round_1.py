@@ -1,7 +1,3 @@
-"""
-Copy of the practice round trader.
-"""
-
 from datamodel import *
 import jsonpickle
 from dataclasses import dataclass
@@ -155,13 +151,20 @@ class Trader:
             orders.append(Order(symbol, target_price + Trader.amethyst_threshold(-new_pos), -max_sell))
         
         return orders, None
-        
-        
+
+    def clean_state(self, state: TradingState):
+        # Remove orders of size 0
+        def clean_orders(d: dict):
+            return {k: v for k, v in d.items() if v != 0}
+        for depth in state.order_depths.values():
+            clean_orders(depth.buy_orders)
+            clean_orders(depth.sell_orders)        
 
     def run(self, state: TradingState, verbose=True):
-
         if verbose:
             print(jsonpickle.encode(state))
+
+        self.clean_state(state)
 
         data_str = state.traderData
         if data_str == "":

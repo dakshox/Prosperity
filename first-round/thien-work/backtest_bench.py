@@ -22,11 +22,11 @@ def bench_backtest():
 def bench_backtest_from_log():
     trader_func = partial(trader.Trader().run, verbose=False)
     log = pd.read_csv(ACTIVITY_LOG_PATH, sep=";")
-
     results = backtester.backtest_from_log(trader_func, log, iters=1000)
     print(results)
 
 if __name__ == "__main__":
     bench_backtest()
+    bench_backtest_from_log()
 
 # BacktestResults(balance=-239197, position={'STARFRUIT': 8, 'AMETHYSTS': 20}, profit=1227.0)
