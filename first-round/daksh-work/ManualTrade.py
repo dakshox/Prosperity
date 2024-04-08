@@ -6,7 +6,7 @@
 # The EV of one bid is then the P(X <= x) * (100 - x)
 # The EV of two bids can easily be calculated
 # The best bid1 and bid2 can be calculated by iterating through all possible bids
-# The best bid1 and bid2 are 52 and 78 respectively, giving a EV of 20.4152
+# The best bid1 and bid2 are 952 and 978 respectively, giving a EV of 20.4152
 
 
 ev = 0
