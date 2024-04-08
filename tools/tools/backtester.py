@@ -5,6 +5,8 @@ from typing import *
 from tools.log_parser import Log
 import copy
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
+import pandas as pd
 
 trader_type = Callable[[datamodel.TradingState], Tuple[Dict[str, List[datamodel.Order]], Any, str]]
 
@@ -61,22 +63,71 @@ class BacktestResults:
     position: Dict[str, int]
     profit: int
 
-def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=False, limits=KNOWN_LIMITS) -> BacktestResults:
-    """
-    Backtests against log data from a prober strategy. The prober must call "print(jsonpickle.encode(state))" every round, and print nothing else.
-    Please call log_parser.parse_log with parse_trader_log_as_object=True to parse the prober log as an object.
+class _ActivityStream(ABC):
+    @abstractmethod
+    def __iter__(self) -> Iterator[datamodel.TradingState]:
+        """
+        Returns a iterator of TradingState objects with the following filled in:
+        - timestamp
+        - listings
+        - order_depths
+        - market_trades
+        - observations
 
-    Important args:
-        trader_func: The trader function to backtest
-        data: The log to backtest against
-        iters: The number of iterations to test (good for testing). If not specified, runs all iterations.
-    """
+        Missing values can be filled with None.
+        """
+        pass
 
+    @abstractmethod
+    def get_mid_price_at(self, timestamp: int) -> int:
+        pass
+
+
+class _ActivityStreamDF(_ActivityStream):
+    def __init__(self, log: Log):
+        self.log = log
+
+    def __iter__(self) -> Iterator[datamodel.TradingState]:
+        for l in self.log.sandbox_logs:
+            yield l.trader_log
+
+    def get_mid_price_at(self, timestamp: int, symbol: str) -> int:
+        return self.log.activity_df.query("product == @symbol and timestamp == @timestamp").iloc[0]["mid_price"]
+
+
+class _ActivityStreamPriceLog(_ActivityStream):
+    def __init__(self, price_logs: pd.DataFrame):
+        self.price_logs = price_logs
+        self.price_logs_by_timestamp = self.price_logs.groupby("timestamp")
+
+    def __iter__(self) -> Iterator[datamodel.TradingState]:
+        for name, group in self.price_logs_by_timestamp:
+            listings = {}
+            order_depths = {}
+            for idx, row in group.iterrows():
+                listings[row["product"]] = datamodel.Listing(row["product"], row["product"], 1)
+                order_depths[row["product"]] = datamodel.OrderDepth()
+                for i in (1, 2, 3):
+                    if not pd.isna(row[f"bid_price_{i}"]):
+                        order_depths[row["product"]].buy_orders[str(int(row[f"bid_price_{i}"]))] = int(row[f"bid_volume_{i}"])
+                    if not pd.isna(row[f"ask_price_{i}"]):
+                        order_depths[row["product"]].sell_orders[str(int(row[f"ask_price_{i}"]))] = -int(row[f"ask_volume_{i}"])
+            yield datamodel.TradingState(
+                traderData=None,
+                timestamp=name,
+                listings=listings,
+                order_depths=order_depths,
+                market_trades={}, # If this is ever important, please add functionality to parse market trades from logs!
+                observations={}, # This is not important for now...
+                own_trades=None,
+                position=None,
+            )
+
+    def get_mid_price_at(self, timestamp: int, symbol: str) -> int:
+        return self.price_logs.query("product == @symbol and timestamp == @timestamp").iloc[0]["mid_price"]
+
+def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivityStream, iters=None, suppress_warnings=False, limits=KNOWN_LIMITS) -> BacktestResults:
     warn = lambda s: sys.stderr.write(f"[WARN] {s}\n") if not suppress_warnings else None
-
-    trading_states = [l.trader_log for l in data.sandbox_logs]
-
-    activity_df = data.activity_df
 
     balance = 0
     trader_data = ""
@@ -84,7 +135,7 @@ def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=
     last_round_trades = []
 
     final_timestamp = 0
-    for i, log_state in enumerate(trading_states):
+    for i, log_state in enumerate(activity_stream):
         if iters is not None and i >= iters:
             break
         if log_state is None:
@@ -106,7 +157,8 @@ def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=
 
         # resolve orders
         for symbol, symbol_orders in orders.items():
-            assert all(o.quantity != 0 for o in symbol_orders), f"Order with 0 quantity found: {symbol}, {symbol_orders}"
+            if any(o.quantity == 0 for o in symbol_orders):
+                warn(f"Order with 0 quantity found: {symbol}, timestamp={trading_state.timestamp}, {symbol_orders},")
 
             current_position = position[symbol] if symbol in position.keys() else 0
             bid_orders = [o for o in symbol_orders if o.quantity > 0]
@@ -148,7 +200,8 @@ def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=
 
     # Liquidate all positions
     for symbol, pos in position.items():
-        mid_price = activity_df.query("product == @symbol and timestamp == @final_timestamp").iloc[0]["mid_price"]
+        # mid_price = activity_df.query("product == @symbol and timestamp == @final_timestamp").iloc[0]["mid_price"]
+        mid_price = activity_stream.get_mid_price_at(final_timestamp, symbol)
         profit += mid_price * pos
 
     return BacktestResults(
@@ -156,3 +209,32 @@ def backtest(trader_func: trader_type, data: Log, iters=None, suppress_warnings=
         position,
         profit
     )
+
+def backtest(trader_func: trader_type, data: Log, *args, **kwargs) -> BacktestResults:
+    """
+    Backtests against log data from a prober strategy. The prober must call "print(jsonpickle.encode(state))" every round, and print nothing else.
+    Please call log_parser.parse_log with parse_trader_log_as_object=True to parse the prober log as an object.
+
+    Important args:
+        trader_func: The trader function to backtest
+        data: The log to backtest against
+        iters: The number of iterations to test (good for testing). If not specified, runs all iterations.
+        suppress_warnings: If True, suppresses warnings (but you should probably fix the issues, because they are usually very bad)
+        limits: The limits for each symbol. If new symbols are added, please add them to KNOWN_LIMITS (the default).
+    """
+    activity_stream = _ActivityStreamDF(data)
+    return _backtest_from_stream(trader_func, activity_stream, *args, **kwargs)
+
+def backtest_from_log(trader_func: trader_type, activity_df: pd.DataFrame, *args, **kwargs) -> BacktestResults:
+    """
+    Backtests against historical log data. (e.g. from strategies, or "data in a bottle", in data/)
+
+    Important args:
+        trader_func: The trader function to backtest
+        activity_df: the data in DataFrame format (pd.read_csv(file_path, sep=";"))
+        iters: The number of iterations to test (good for testing). If not specified, runs all iterations.
+        suppress_warnings: If True, suppresses warnings (but you should probably fix the issues, because they are usually very bad)
+        limits: The limits for each symbol. If new symbols are added, please add them to KNOWN_LIMITS (the default).
+    """
+    activity_stream = _ActivityStreamPriceLog(activity_df)
+    return _backtest_from_stream(trader_func, activity_stream, *args, **kwargs)
