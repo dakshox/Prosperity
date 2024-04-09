@@ -7,8 +7,8 @@ starfruit_intercept = 0
 STARFRUIT = "STARFRUIT"
 AMETHYSTS = "AMETHYSTS"
 LIMITS = {
-    "AMETHYSTS": 20,
-    "STARFRUIT": 20,
+    AMETHYSTS: 20,
+    STARFRUIT: 20,
 }
 
 @dataclass
@@ -21,17 +21,20 @@ class StarfruitData:
 class Data:
     starfruit_data: StarfruitData | None
 
+def sign(x):
+    return 1 if x > 0 else -1 if x < 0 else 0
+
 class Trader:
     @staticmethod
-    def sanitise_orders(orders):
-        return [{"price": int(k), "qty": int(v)} for k, v in orders.items()]
+    def sanitise_and_sort_orders(orders):
+        return sorted([{"price": int(k), "qty": int(v)} for k, v in orders.items()], key=lambda x: x["price"] * -sign(x["qty"]))
 
     @staticmethod
     def starfruit_strategy(state, data):
         symbol = STARFRUIT
         order_depths = state.order_depths[symbol]
-        buy_orders = Trader.sanitise_orders(order_depths.buy_orders)
-        sell_orders = Trader.sanitise_orders(order_depths.sell_orders)
+        buy_orders = Trader.sanitise_and_sort_orders(order_depths.buy_orders)
+        sell_orders = Trader.sanitise_and_sort_orders(order_depths.sell_orders)
 
         position = 0 if symbol not in state.position else state.position[symbol]
         max_buy = LIMITS[symbol] - position
@@ -102,8 +105,8 @@ class Trader:
     def amethyst_strategy(state, data):
         symbol = AMETHYSTS
         order_depths = state.order_depths[symbol]
-        buy_orders = Trader.sanitise_orders(order_depths.buy_orders)
-        sell_orders = Trader.sanitise_orders(order_depths.sell_orders)
+        buy_orders = Trader.sanitise_and_sort_orders(order_depths.buy_orders)
+        sell_orders = Trader.sanitise_and_sort_orders(order_depths.sell_orders)
 
         position = 0 if symbol not in state.position else state.position[symbol]
         max_buy = LIMITS[symbol] - position
