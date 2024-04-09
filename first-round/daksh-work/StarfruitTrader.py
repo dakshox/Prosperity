@@ -51,35 +51,37 @@ class Trader:
             newBid = int(max(order_depth.buy_orders.keys()))
             newAsk = int(min(order_depth.sell_orders.keys()))
             newMid = (newBid + newAsk) // 2
+            maxBuy = LIMITS[product] - position
+            maxSell = LIMITS[product] + position
 
             ewma3 = (0.3 * newMid + 0.7 * float(traderData)) if traderData else newMid
             traderData = str(ewma3)
             print('Position:', position)
             #First trade on orders that exist
 
-            THIS DOESNT WORK YET
+            # THIS DOESNT WORK YET
 
             
             for price, volume in order_depth.sell_orders.items():
-                if price < ewma3 - 1 and position + volume > -LIMITS[product]:
-                    print("BUY",price, ewma3, position, -volume)
-                    orders.append(Order(product, price, -volume))
-                    position += -volume
+                if price < ewma3 - 1 and maxBuy > 0:
+                    print("BUY",price, ewma3, position, min(-volume, maxBuy))
+                    orders.append(Order(product, price, min(-volume, maxBuy)))
+                    maxBuy -= min(-volume, maxBuy)
             for price, volume in order_depth.buy_orders.items():
-                if price > ewma3 + 1 and position + volume < LIMITS[product]:
-                    print("SELL",price, ewma3, position, -volume)
-                    orders.append(Order(product, price, -volume))
-                    position += -volume
+                if price > ewma3 + 1 and maxSell > 0:
+                    print("SELL",price, ewma3, position, -min(volume, maxSell))
+                    orders.append(Order(product, price, -min(volume, maxSell)))
+                    maxSell -= min(volume, maxSell)
                 
             
 
             #Second, market make around ewma
-            if position > -LIMITS[product]:
-                print(-20 - position)
-                orders.append(Order(product, round(ewma3) + 2, - 20 - position))
-            if position < LIMITS[product]:
-                print(20 - position)
-                orders.append(Order(product, round(ewma3) - 2, 20 - position))
+            if maxSell > 0:
+                print('Market Making MaxSell:', maxSell)
+                orders.append(Order(product, round(ewma3) + 2, -maxSell))
+            if maxBuy > 0:
+                print('Market Making MaxBuy:', maxBuy)
+                orders.append(Order(product, round(ewma3) - 2, maxBuy))
 
         return orders, traderData
 
