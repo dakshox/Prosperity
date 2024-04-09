@@ -22,23 +22,50 @@ class Trader:
         product = AMETHYSTS
         orders: List[Order] = []
         position = Trader.get_position(state, product)
-        # print('Position:', position)
-        # print(state.own_trades)
-        stopHittingLimit = 15
+        order_depth: OrderDepth = state.order_depths.get(product, OrderDepth())
+        maxBuy = LIMITS[product] - position
+        maxSell = LIMITS[product] + position
+        print('Position:', position)
+        print(state.own_trades)
+        # stopHittingLimit = 21
 
-        if -stopHittingLimit < position < stopHittingLimit:
-            orders.append(Order(product, 10002, -20 - position))
-            orders.append(Order(product, 9998, 20 - position))
-        elif position >= stopHittingLimit:
-            orders.append(Order(product, 10000, -5))
-            orders.append(Order(product, 10002, -15 - position))
-            if position != 20:
-                orders.append(Order(product, 9998, 20 - position))
-        elif position <= -stopHittingLimit:
-            orders.append(Order(product, 10000, 5))
-            orders.append(Order(product, 9998, 15 - position))
-            if position != -20:
-                orders.append(Order(product, 10002, -20 - position))
+
+        for price, volume in order_depth.sell_orders.items():
+            if price < 10000 and maxBuy > 0:
+                print('BUY', price, volume, maxBuy)
+                orders.append(Order(product, price, min(-volume, maxBuy)))
+                maxBuy -= min(-volume, maxBuy)
+                # newpos = position + min(-volume, maxBuy)
+
+        for price, volume in order_depth.buy_orders.items():
+            if price > 10000 and maxSell > 0:
+                print('SELL', price, volume, maxSell)
+                orders.append(Order(product, price, -min(volume, maxSell)))
+                maxSell -= min(volume, maxSell)
+                # newpos = position - min(volume, maxSell)
+        
+        if maxSell > 0:
+            print('Market Making MaxSell:', maxSell)
+            orders.append(Order(product, 10002, -maxSell))
+        if maxBuy > 0:
+            print('Market Making MaxBuy:', maxBuy)
+            orders.append(Order(product, 9998, maxBuy))
+
+
+
+        # if -stopHittingLimit < position < stopHittingLimit:
+        #     orders.append(Order(product, 10002, -20 - position))
+        #     orders.append(Order(product, 9998, 20 - position))
+        # elif position >= stopHittingLimit:
+        #     orders.append(Order(product, 10000, -5))
+        #     orders.append(Order(product, 10002, -15 - position))
+        #     if position != 20:
+        #         orders.append(Order(product, 9998, 20 - position))
+        # elif position <= -stopHittingLimit:
+        #     orders.append(Order(product, 10000, 5))
+        #     orders.append(Order(product, 9998, 15 - position))
+        #     if position != -20:
+        #         orders.append(Order(product, 10002, -20 - position))
         return orders
 
     @staticmethod
