@@ -157,8 +157,8 @@ class Trader:
         def clean_orders(d: dict):
             return {k: v for k, v in d.items() if v != 0}
         for depth in state.order_depths.values():
-            clean_orders(depth.buy_orders)
-            clean_orders(depth.sell_orders)        
+            depth.buy_orders = clean_orders(depth.buy_orders)
+            depth.sell_orders = clean_orders(depth.sell_orders)
 
     def run(self, state: TradingState, verbose=True):
         if verbose:
@@ -185,7 +185,9 @@ if __name__ == "__main__":
     import tools.backtester as backtester
     import tools.log_parser as log_parser
     import numpy as np
-    log = log_parser.parse_log("trader4_log.log", parse_trader_log_as_object=True)
+    import pandas as pd
+    # log = log_parser.parse_log("prober.log", parse_trader_log_as_object=True)
+    log = pd.read_csv("../data/prices_round_1_day_0.csv", sep=";")
 
-    # for starfruit_c in np.arange(-0.5, -0.4, 0.005):
-    print(starfruit_c, backtester.backtest(lambda *args, **kwargs: Trader().run(*args, **kwargs, verbose=False), log))
+    for starfruit_c in np.arange(-0.8, -0.3, 0.05):
+        print(starfruit_c, backtester.backtest_from_log(lambda *args, **kwargs: Trader().run(*args, **kwargs, verbose=False), log))
