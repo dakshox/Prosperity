@@ -27,7 +27,6 @@ class Trader:
         maxSell = LIMITS[product] + position
         print('Position:', position)
         print(state.own_trades)
-        # stopHittingLimit = 21
 
 
         for price, volume in order_depth.sell_orders.items():
@@ -51,21 +50,6 @@ class Trader:
             print('Market Making MaxBuy:', maxBuy)
             orders.append(Order(product, 9998, maxBuy))
 
-
-
-        # if -stopHittingLimit < position < stopHittingLimit:
-        #     orders.append(Order(product, 10002, -20 - position))
-        #     orders.append(Order(product, 9998, 20 - position))
-        # elif position >= stopHittingLimit:
-        #     orders.append(Order(product, 10000, -5))
-        #     orders.append(Order(product, 10002, -15 - position))
-        #     if position != 20:
-        #         orders.append(Order(product, 9998, 20 - position))
-        # elif position <= -stopHittingLimit:
-        #     orders.append(Order(product, 10000, 5))
-        #     orders.append(Order(product, 9998, 15 - position))
-        #     if position != -20:
-        #         orders.append(Order(product, 10002, -20 - position))
         return orders
     @staticmethod
     def StarfruitTrades(state):
