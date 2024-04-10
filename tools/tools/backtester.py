@@ -62,6 +62,8 @@ class BacktestResults:
     balance: int
     position: Dict[str, int]
     profit: int
+    balance_by_symbol: Dict[str, int]
+    profit_by_symbol: Dict[str, int]
 
 class _ActivityStream(ABC):
     @abstractmethod
@@ -109,9 +111,9 @@ class _ActivityStreamPriceLog(_ActivityStream):
                 order_depths[row["product"]] = datamodel.OrderDepth()
                 for i in (1, 2, 3):
                     if not pd.isna(row[f"bid_price_{i}"]):
-                        order_depths[row["product"]].buy_orders[str(int(row[f"bid_price_{i}"]))] = int(row[f"bid_volume_{i}"])
+                        order_depths[row["product"]].buy_orders[int(row[f"bid_price_{i}"])] = int(row[f"bid_volume_{i}"])
                     if not pd.isna(row[f"ask_price_{i}"]):
-                        order_depths[row["product"]].sell_orders[str(int(row[f"ask_price_{i}"]))] = -int(row[f"ask_volume_{i}"])
+                        order_depths[row["product"]].sell_orders[int(row[f"ask_price_{i}"])] = -int(row[f"ask_volume_{i}"])
             yield datamodel.TradingState(
                 traderData=None,
                 timestamp=name,
@@ -133,6 +135,8 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
     trader_data = ""
     position = {}
     last_round_trades = []
+    balance_by_symbol = {}
+    profit_by_symbol = {}
 
     final_timestamp = 0
     for i, log_state in enumerate(activity_stream):
@@ -191,7 +195,12 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
                 if symbol not in position.keys():
                     position[symbol] = 0
                 position[symbol] += bid_delta_position + ask_delta_position
+
             balance += bid_delta_balance + ask_delta_balance
+            if symbol not in balance_by_symbol.keys():
+                balance_by_symbol[symbol] = 0
+            balance_by_symbol[symbol] += bid_delta_balance + ask_delta_balance
+
             if bid_delta_position != 0 and ask_delta_position != 0:
                 warn(f"Bid and ask filled at the same time for {symbol} at timestamp {log_state.timestamp}")
         final_timestamp = log_state.timestamp
@@ -203,11 +212,14 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
         # mid_price = activity_df.query("product == @symbol and timestamp == @final_timestamp").iloc[0]["mid_price"]
         mid_price = activity_stream.get_mid_price_at(final_timestamp, symbol)
         profit += mid_price * pos
+        profit_by_symbol[symbol] = mid_price * pos + balance_by_symbol[symbol]
 
     return BacktestResults(
         balance,
         position,
-        profit
+        profit,
+        balance_by_symbol,
+        profit_by_symbol
     )
 
 def backtest(trader_func: trader_type, data: Log, *args, **kwargs) -> BacktestResults:
