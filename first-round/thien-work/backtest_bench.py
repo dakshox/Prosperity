@@ -1,6 +1,6 @@
 import sys
-sys.path.append(".")
-import combined_trader_round_1 as trader
+sys.path.append("..")
+import combined_trader as trader
 
 import tools.backtester as backtester
 import tools.log_parser as log_parser
