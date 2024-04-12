@@ -46,11 +46,12 @@ def parse_log(path: str, parse_trader_log_as_object: bool = False) -> Log:
             try:
                 log_object = decoder(obj["lambdaLog"], classes=[datamodel.TradingState, datamodel.Listing, datamodel.OrderDepth, datamodel.Trade, datamodel.Order, datamodel.Observation])
                 # clean up strings in OrderDepth
-                for depth in log_object.order_depths.values():
-                    for side in ["buy_orders", "sell_orders"]:
-                        depth_dict = getattr(depth, side)
-                        depth_dict = {int(k): v for k, v in depth_dict.items()}
-                        setattr(depth, side, depth_dict)
+                if parse_trader_log_as_object:
+                    for depth in log_object.order_depths.values():
+                        for side in ["buy_orders", "sell_orders"]:
+                            depth_dict = getattr(depth, side)
+                            depth_dict = {int(k): v for k, v in depth_dict.items()}
+                            setattr(depth, side, depth_dict)
             except json.decoder.JSONDecodeError:
                 print(f"[WARN] lambdaLog is missing for timestamp {obj['timestamp']}.")
                 log_object = None
