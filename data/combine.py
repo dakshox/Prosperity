@@ -28,7 +28,7 @@ def combine():
     r1_price_dfs = [pd.read_csv(f, sep=";") for f in GIVEN_ROUND_1_PRICES]
     r1_trade_dfs = [pd.read_csv(f, sep=";").assign(day=i) for i, f in zip(ROUND_1_DAYS, GIVEN_ROUND_1_TRADES)]
     r1_price_dfs.append(r1_log_data.activity_df)
-    r1_trade_dfs.append(r1_log_data.trades_df.assign(day=2))
+    # r1_trade_dfs.append(r1_log_data.trades_df.assign(day=1)) # data is messed up by our solution
 
     r1_prices = pd.concat(r1_price_dfs)
     r1_trades = pd.concat(r1_trade_dfs)
@@ -37,6 +37,7 @@ def combine():
 
     # deal with round 2
     r2_price_dfs = [pd.read_csv(f, sep=";") for f in GIVEN_ROUND_2]
+    r2_price_dfs = [df[df["timestamp"] < 10 ** 6] for df in r2_price_dfs]
     r2_prices = pd.concat(r2_price_dfs)
     r2_prices = make_total_timestamp(r2_prices, "timestamp", "DAY")
 
