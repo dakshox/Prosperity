@@ -14,6 +14,7 @@ trader_type = Callable[[datamodel.TradingState], Tuple[Dict[str, List[datamodel.
 KNOWN_LIMITS = {
     "AMETHYSTS": 20,
     "STARFRUIT": 20,
+    "ORCHIDS": 100,
 }
 
 def _resolve_orders(my_orders: list[datamodel.Order], order_depth_dict: Dict[int, int], resolving_bids: bool, trades: list[datamodel.Trade], timestamp: int) -> Tuple[int, int]:
@@ -189,11 +190,11 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
                     return gen_normal(mu, sigma, min, max)
                 
                 if good_ask:
-                    orchid_asks[round(orchid_price + np.random.randint(-2, 3))] = gen_normal(8, 3, 2, 10)
-                orchid_asks[round(orchid_price + 4)] = np.random.randint(2, 11)
-                orchid_asks[round(orchid_price + 5)] = np.random.randint(2, 11)
+                    orchid_asks[round(orchid_price + np.random.randint(-2, 3))] = -gen_normal(8, 3, 2, 10)
+                orchid_asks[round(orchid_price + 4)] = -np.random.randint(2, 11)
+                orchid_asks[round(orchid_price + 5)] = -np.random.randint(2, 11)
                 if not good_ask:
-                    orchid_asks[round(orchid_price + 11)] = gen_normal(47, 7, 35, 60)
+                    orchid_asks[round(orchid_price + 11)] = -gen_normal(47, 7, 35, 60)
 
                 if good_bid:
                     orchid_bids[round(orchid_price - np.random.randint(-2, 3))] = gen_normal(8, 3, 2, 10)
@@ -304,7 +305,7 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
     # Liquidate all positions
     for symbol, pos in position.items():
         # mid_price = activity_df.query("product == @symbol and timestamp == @final_timestamp").iloc[0]["mid_price"]
-        mid_price = activity_stream.get_mid_price_at(final_timestamp, symbol)
+        mid_price = activity_stream.get_mid_price_at(final_timestamp, symbol) if symbol != "ORCHIDS" else orchids_df.loc[final_timestamp]["ORCHIDS"]
         profit += mid_price * pos
         profit_by_symbol[symbol] = mid_price * pos + balance_by_symbol[symbol]
 

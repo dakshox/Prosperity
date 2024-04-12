@@ -3,6 +3,7 @@
 Changelog:
 
 01: copy from round 1
+02: add a dumb orchid trader to test the backtester
 
 """
 
@@ -14,9 +15,11 @@ import jsonpickle
 
 STARFRUIT = "STARFRUIT"
 AMETHYSTS = "AMETHYSTS"
+ORCHIDS = "ORCHIDS"
 LIMITS = {
     AMETHYSTS: 20,
     STARFRUIT: 20,
+    ORCHIDS: 100,
 }
 
 class Trader:
@@ -94,6 +97,33 @@ class Trader:
         return orders, traderData
 
     @staticmethod
+    def generate_orchid_trades(state):
+        product = ORCHIDS
+        order_depth: OrderDepth = state.order_depths.get(product, OrderDepth())
+        position = Trader.get_position(state, product)
+        orders: List[Order] = []
+
+        fair_price = 1050
+        maxBuy = LIMITS[product] - position
+        maxSell = LIMITS[product] + position
+
+        for price, volume in order_depth.sell_orders.items():
+            if price < fair_price and maxBuy > 0:
+                print("buy trigger", volume, maxBuy)
+                orders.append(Order(product, price, min(-volume, maxBuy)))
+                maxBuy -= min(-volume, maxBuy)
+        for price, volume in order_depth.buy_orders.items():
+            if price > fair_price and maxSell > 0:
+                print("sell trigger", volume, maxSell)
+                orders.append(Order(product, price, -min(volume, maxSell)))
+                maxSell -= min(volume, maxSell)
+        
+        print(orders, position)
+
+        return orders
+
+
+    @staticmethod
     def clean_state(state: TradingState):
         """Remove orders of size 0."""
         def clean_orders(d: dict):
@@ -120,9 +150,12 @@ class Trader:
         starfruit_orders, starfruit_traderData = Trader.generate_starfruit_trades(state, traderData["starfruit"])
         result[STARFRUIT] = starfruit_orders
 
+        orchid_orders = Trader.generate_orchid_trades(state)
+        result[ORCHIDS] = orchid_orders
+
         # traderData = ''
         # Placeholder for conversions and trader data management
-        conversions = 1
+        conversions = 0
 
         traderData = {"starfruit": starfruit_traderData}
 
