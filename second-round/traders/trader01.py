@@ -133,5 +133,7 @@ if __name__ == "__main__":
     from tools.backtester import backtest_from_log
     import pandas as pd
     import functools
-    test_data = pd.read_csv("../data/prices_round_1_day_-2.csv", sep=";")
-    print(backtest_from_log(functools.partial(Trader().run, verbose=False), test_data))
+    prices_df = pd.read_csv("../../data/data_v1/prices_1.csv", sep=";")
+    # trades_df = pd.read_csv("../../data/data_v1/trades_1.csv", sep=";") # idk whats going on with trades rn
+    orchids_df = pd.read_csv("../../data/data_v1/prices_2.csv", sep=";")
+    print(backtest_from_log(functools.partial(Trader().run, verbose=False), prices_df, None, orchids_df, day=1))

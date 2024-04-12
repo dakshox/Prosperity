@@ -7,12 +7,14 @@ import copy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
 import pandas as pd
+import numpy as np
 
 trader_type = Callable[[datamodel.TradingState], Tuple[Dict[str, List[datamodel.Order]], Any, str]]
 
 KNOWN_LIMITS = {
     "AMETHYSTS": 20,
     "STARFRUIT": 20,
+    "ORCHIDS": 100,
 }
 
 def _resolve_orders(my_orders: list[datamodel.Order], order_depth_dict: Dict[int, int], resolving_bids: bool, trades: list[datamodel.Trade], timestamp: int) -> Tuple[int, int]:
@@ -98,9 +100,16 @@ class _ActivityStreamDF(_ActivityStream):
 
 
 class _ActivityStreamPriceLog(_ActivityStream):
-    def __init__(self, price_logs: pd.DataFrame):
+    def __init__(self, price_logs: pd.DataFrame, day, start, end):
+        if day is not None:
+            assert start is None and end is None, "day is incompatible with start and end"
+            start = 10 ** 6 * (day + 2)
+            end = 10 ** 6 * (day + 3)
+        self.timestamp_col = "total_timestamp" if "total_timestamp" in price_logs.columns else "timestamp"
         self.price_logs = price_logs
-        self.price_logs_by_timestamp = self.price_logs.groupby("timestamp")
+        if start is not None:
+            self.price_logs = self.price_logs[(start <= self.price_logs[self.timestamp_col]) & (self.price_logs[self.timestamp_col] < end)]
+        self.price_logs_by_timestamp = self.price_logs.groupby(self.timestamp_col)
 
     def __iter__(self) -> Iterator[datamodel.TradingState]:
         for name, group in self.price_logs_by_timestamp:
@@ -126,10 +135,13 @@ class _ActivityStreamPriceLog(_ActivityStream):
             )
 
     def get_mid_price_at(self, timestamp: int, symbol: str) -> int:
-        return self.price_logs.query("product == @symbol and timestamp == @timestamp").iloc[0]["mid_price"]
+        return self.price_logs_by_timestamp.get_group(timestamp).query("product == @symbol").iloc[0]["mid_price"]
 
-def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivityStream, iters=None, suppress_warnings=False, limits=KNOWN_LIMITS) -> BacktestResults:
+def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivityStream, trades_df, orchids_df, iters=None, suppress_warnings=False, limits=KNOWN_LIMITS) -> BacktestResults:
     warn = lambda s: sys.stderr.write(f"[WARN] {s}\n") if not suppress_warnings else None
+
+    if orchids_df is not None:
+        orchids_df.set_index("total_timestamp", drop=True, inplace=True)
 
     balance = 0
     trader_data = ""
@@ -145,6 +157,56 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
         if log_state is None:
             warn(f"Empty trading state at position {i}, skipping")
             continue
+
+        observations = None
+        if orchids_df is not None:
+            row = orchids_df.loc[log_state.timestamp]
+            orchid_price = row["ORCHIDS"].item()
+            observations = datamodel.Observation(
+                {},
+                {"ORCHIDS": datamodel.ConversionObservation(
+                    orchid_price - 0.75,
+                    orchid_price + 0.75, # estimated
+                    row["TRANSPORT_FEES"].item(),
+                    row["EXPORT_TARIFF"].item(),
+                    row["IMPORT_TARIFF"].item(),
+                    row["SUNLIGHT"].item(),
+                    row["HUMIDITY"].item(),
+                )}
+            )
+
+            # add some fake orchid trades
+            if "ORCHIDS" not in log_state.order_depths.keys():
+                good_ask = np.random.rand() < 33 / 1000
+                good_bid = np.random.rand() < 33 / 1000
+                if good_ask and good_bid:
+                    good_bid = False # don't want overlapping spread
+                orchid_asks = {}
+                orchid_bids = {}
+                def gen_normal(mu, sigma, min, max):
+                    cand = round(np.random.normal(mu, sigma))
+                    if min <= cand <= max:
+                        return cand
+                    return gen_normal(mu, sigma, min, max)
+                
+                if good_ask:
+                    orchid_asks[round(orchid_price + np.random.randint(-2, 3))] = -gen_normal(8, 3, 2, 10)
+                orchid_asks[round(orchid_price + 4)] = -np.random.randint(2, 11)
+                orchid_asks[round(orchid_price + 5)] = -np.random.randint(2, 11)
+                if not good_ask:
+                    orchid_asks[round(orchid_price + 11)] = -gen_normal(47, 7, 35, 60)
+
+                if good_bid:
+                    orchid_bids[round(orchid_price - np.random.randint(-2, 3))] = gen_normal(8, 3, 2, 10)
+                orchid_bids[round(orchid_price - 4)] = np.random.randint(2, 11)
+                orchid_bids[round(orchid_price - 5)] = np.random.randint(2, 11)
+                if not good_bid:
+                    orchid_bids[round(orchid_price - 11)] = gen_normal(47, 7, 35, 60)
+                
+                log_state.order_depths["ORCHIDS"] = datamodel.OrderDepth()
+                log_state.order_depths["ORCHIDS"].buy_orders = orchid_bids
+                log_state.order_depths["ORCHIDS"].sell_orders = orchid_asks
+
         trading_state = datamodel.TradingState(
             trader_data,
             timestamp=log_state.timestamp,
@@ -153,7 +215,8 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
             own_trades=last_round_trades,
             market_trades=log_state.market_trades, # NOT ACCURATE; this is using data from the probe, so it's not affected by what trades you make
             position=copy.deepcopy(position),
-            observations=log_state.observations)
+            observations=observations if observations is not None else log_state.observations
+        )
         orders, _, trader_data = trader_func(trading_state)
         last_round_trades = []
 
@@ -191,6 +254,38 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
                 trades=last_round_trades,
                 timestamp=log_state.timestamp
             )
+
+            # Resolve limit orders (if trades_df is specified)
+            if trades_df is not None:
+                trades = trades_df.query("total_timestamp == @log_state.timestamp and symbol == @symbol")
+                trade_sell_orders = []
+                trade_buy_orders = []
+                for _, trade in trades.iterrows():
+                    trade_buy_orders.append(datamodel.Order(trade["symbol"], trade["price"], trade["quantity"]))
+                    trade_sell_orders.append(datamodel.Order(trade["symbol"], trade["price"], -trade["quantity"]))
+                trade_buy_orders.sort(key=lambda o: o.price, reverse=True)
+                trade_sell_orders.sort(key=lambda o: o.price, reverse=False)
+                trade_buy_orders = {o.price: o.quantity for o in trade_buy_orders}
+                trade_sell_orders = {o.price: o.quantity for o in trade_sell_orders}
+                trade_bid_delta_position, trade_bid_delta_balance = _resolve_orders(
+                    bid_orders,
+                    trade_sell_orders,
+                    resolving_bids=True,
+                    trades=last_round_trades,
+                    timestamp=log_state.timestamp
+                )
+                trade_ask_delta_position, trade_ask_delta_balance = _resolve_orders(
+                    ask_orders,
+                    trade_buy_orders,
+                    resolving_bids=False,
+                    trades=last_round_trades,
+                    timestamp=log_state.timestamp
+                )
+                bid_delta_position += trade_bid_delta_position
+                bid_delta_balance += trade_bid_delta_balance
+                ask_delta_position += trade_ask_delta_position
+                ask_delta_balance += trade_ask_delta_balance
+
             if bid_delta_position + ask_delta_position != 0:
                 if symbol not in position.keys():
                     position[symbol] = 0
@@ -201,8 +296,8 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
                 balance_by_symbol[symbol] = 0
             balance_by_symbol[symbol] += bid_delta_balance + ask_delta_balance
 
-            if bid_delta_position != 0 and ask_delta_position != 0:
-                warn(f"Bid and ask filled at the same time for {symbol} at timestamp {log_state.timestamp}")
+            # if bid_delta_position != 0 and ask_delta_position != 0:
+            #     warn(f"Bid and ask filled at the same time for {symbol} at timestamp {log_state.timestamp}")
         final_timestamp = log_state.timestamp
 
     profit = balance
@@ -210,7 +305,7 @@ def _backtest_from_stream(trader_func: trader_type, activity_stream: _ActivitySt
     # Liquidate all positions
     for symbol, pos in position.items():
         # mid_price = activity_df.query("product == @symbol and timestamp == @final_timestamp").iloc[0]["mid_price"]
-        mid_price = activity_stream.get_mid_price_at(final_timestamp, symbol)
+        mid_price = activity_stream.get_mid_price_at(final_timestamp, symbol) if symbol != "ORCHIDS" else orchids_df.loc[final_timestamp]["ORCHIDS"]
         profit += mid_price * pos
         profit_by_symbol[symbol] = mid_price * pos + balance_by_symbol[symbol]
 
@@ -234,19 +329,31 @@ def backtest(trader_func: trader_type, data: Log, *args, **kwargs) -> BacktestRe
         suppress_warnings: If True, suppresses warnings (but you should probably fix the issues, because they are usually very bad)
         limits: The limits for each symbol. If new symbols are added, please add them to KNOWN_LIMITS (the default).
     """
+    print("[WARN] Deprecated: please use backtest_from_log instead")
+
     activity_stream = _ActivityStreamDF(data)
     return _backtest_from_stream(trader_func, activity_stream, *args, **kwargs)
 
-def backtest_from_log(trader_func: trader_type, activity_df: pd.DataFrame, *args, **kwargs) -> BacktestResults:
+def backtest_from_log(trader_func: trader_type, activity_df: pd.DataFrame, trades_df=None, orchids_df=None, day=None, start=None, end=None, *args, **kwargs) -> BacktestResults:
     """
     Backtests against historical log data. (e.g. from strategies, or "data in a bottle", in data/)
 
     Important args:
         trader_func: The trader function to backtest
-        activity_df: the data in DataFrame format (pd.read_csv(file_path, sep=";"))
+        activity_df: the data in DataFrame format (pd.read_csv(prices_1_path, sep=";"))
+        trades_df: the trades data in DataFrame format (pd.read_csv(trades_1_path, sep=";"))
+        orchids_df: the orchids data in DataFrame format (pd.read_csv(prices_2_path, sep=";"))
         iters: The number of iterations to test (good for testing). If not specified, runs all iterations.
         suppress_warnings: If True, suppresses warnings (but you should probably fix the issues, because they are usually very bad)
         limits: The limits for each symbol. If new symbols are added, please add them to KNOWN_LIMITS (the default).
+        day: The day to backtest (-2 onwards). Orchid data is available day -1 onwards.
+        start: The start total_timestamp to backtest (inclusive) (incompatible with day)
+        end: The end total_timestamp to backtest (exclusive) (incompatible with day)
     """
-    activity_stream = _ActivityStreamPriceLog(activity_df)
-    return _backtest_from_stream(trader_func, activity_stream, *args, **kwargs)
+    if trades_df is None:
+        print("[WARN] No trades_df is specified. Please input trades data to resolve limit order trades.")
+    if orchids_df is None:
+        print("[WARN] No orchids_df is specified. Please input orchids data to resolve orchids trades.")
+
+    activity_stream = _ActivityStreamPriceLog(activity_df, day, start, end)
+    return _backtest_from_stream(trader_func, activity_stream, trades_df, orchids_df, *args, **kwargs)
